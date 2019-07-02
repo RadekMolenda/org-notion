@@ -1,0 +1,2 @@
+* Org Notion
+  keeps the org and notion in sync
