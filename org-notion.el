@@ -20,6 +20,9 @@
 ;;   `org-node-push' to push the changes
 ;;   `org-node-fetch' to fetch the changes
 
+;; TODO: use (org-map-tree (lambda () (message (format "%s" (org-get-heading t t t t)))))
+;;       to publish tree as page
+;; TODO: links and todo lists in notion is a must
 ;;; Code:
 
 (defvar org-notion--get-record-values "https://www.notion.so/api/v3/getRecordValues")
@@ -109,16 +112,6 @@
                                         (switch-to-buffer org-notion--current-org-notion-buffer)
                                         (insert (format " %s" title)))))))))
 
-
-;;;###autoload
-(defun org-notion-fetch ()
-  "Fetch the notion block and display it in a message."
-  (interactive)
-  (let* ((notion-id (cdr (assoc "NOTION_ID" (org-entry-properties)))))
-    (if notion-id (let* ((response (fetch-json-block notion-id))
-                         (results (alist-get 'results response)))
-                    (message (format "org-notion-fetch results: %s" results)))
-      (message "please define NOTION_ID as property"))))
 
 ;;;###autoload
 (defun org-notion-open ()
