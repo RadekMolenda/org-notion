@@ -20,97 +20,6 @@
 ;;   `org-node-push' to push the changes
 ;;   `org-node-fetch' to fetch the changes
 
-
-;; {
-;;   "operations": [
-;;     {
-;;       "args": [
-;;         [
-;;           "hello "
-;;         ]
-;;       ],
-;;       "command": "set",
-;;       "path": [
-;;         "properties",
-;;         "title"
-;;       ],
-;;       "table": "block",
-;;       "id": "d8a60223-5a72-44c4-b075-145ecb173e05"
-;;     },
-;;     {
-;;       "args": {
-;;         "last_edited_time": 1562537400000
-;;       },
-;;       "command": "update",
-;;       "path": [],
-;;       "table": "block",
-;;       "id": "d8a60223-5a72-44c4-b075-145ecb173e05"
-;;     }
-;;   ]
-;; };; {
-;;   "operations": [
-;;     {
-;;       "args": {
-;;         "version": 1,
-;;         "id": "ee2228a3-cb5a-44b3-9d37-847a267a15c4",
-;;         "type": "page"
-;;       },
-;;       "command": "set",
-;;       "path": [],
-;;       "table": "block",
-;;       "id": "ee2228a3-cb5a-44b3-9d37-847a267a15c4"
-;;     },
-;;     {
-;;       "args": {
-;;         "permissions": [
-;;           {
-;;             "user_id": "1fe2f673-53f8-4a8f-9812-f99118a7167a",
-;;             "role": "editor",
-;;             "type": "user_permission"
-;;           }
-;;         ]
-;;       },
-;;       "command": "update",
-;;       "path": [],
-;;       "table": "block",
-;;       "id": "ee2228a3-cb5a-44b3-9d37-847a267a15c4"
-;;     },
-;;     {
-;;       "args": {
-;;         "alive": true,
-;;         "parent_table": "space",
-;;         "parent_id": "3d39fb7f-543c-401f-83d7-d29dede9bbd4"
-;;       },
-;;       "command": "update",
-;;       "path": [],
-;;       "table": "block",
-;;       "id": "ee2228a3-cb5a-44b3-9d37-847a267a15c4"
-;;     },
-;;     {
-;;       "args": {
-;;         "id": "ee2228a3-cb5a-44b3-9d37-847a267a15c4"
-;;       },
-;;       "command": "listAfter",
-;;       "path": [
-;;         "pages"
-;;       ],
-;;       "id": "3d39fb7f-543c-401f-83d7-d29dede9bbd4",
-;;       "table": "space"
-;;     },
-;;     {
-;;       "args": {
-;;         "last_edited_by": "1fe2f673-53f8-4a8f-9812-f99118a7167a",
-;;         "last_edited_time": 1562395860000,
-;;         "created_time": 1562395860000,
-;;         "created_by": "1fe2f673-53f8-4a8f-9812-f99118a7167a"
-;;       },
-;;       "command": "update",
-;;       "path": [],
-;;       "table": "block",
-;;       "id": "ee2228a3-cb5a-44b3-9d37-847a267a15c4"
-;;     }
-;;   ]
-;; }
 ;;; Code:
 
 (defvar org-notion--get-record-values "https://www.notion.so/api/v3/getRecordValues")
@@ -118,6 +27,7 @@
 (defvar org-notion--notion-id "NOTION_ID")
 
 (require 's)
+(require 'dash)
 (require 'json)
 
 (defun get-string-from-file (file-path)
@@ -135,6 +45,9 @@
                                         "~/token_v2.gpg")))
                     (s-trim (format "token_v2=%s" (get-string-from-file token-path))))))
 
+(defun org-notion--uuid (uuid-string)
+  "Tries to parse UUID-STRING and returns uuid or nil if failed."
+  (s-join "-" (cdr (s-match "^\\([[:alnum:]]\\{8\\}\\)-?\\([[:alnum:]]\\{4\\}\\)-?\\([[:alnum:]]\\{4\\}\\)-?\\([[:alnum:]]\\{4\\}\\)-?\\([[:alnum:]]\\{12\\}\\)$" uuid-string))))
 
 (defun org-notion--request (url payload cb)
   "Send PAYLOAD post json request to URL and call a CB in response buffer."
@@ -157,7 +70,7 @@
   (org-notion--request
    org-notion--sumbit-transaction-url
    (json-encode `(("operations" .
-                   ((("args" . ((,(list title))))
+                   ((("args" . [[,title]])
                      ("command" . "set")
                      ("path" . ("properties" "title"))
                      ("table" . "block")
@@ -169,30 +82,32 @@
 (defun org-notion-send-block ()
   "Import notion block as org item.  NOTION-ID is notion uuid of imported block."
   (interactive)
-  (let* ((notion-id (org-entry-get (point) org-notion--notion-id))
-         (title (substring-no-properties (org-get-heading t t t t))))
-    (push-title notion-id title (lambda (_status) (switch-to-buffer (current-buffer))))))
+  (let* ((notion-id (org-notion--uuid (org-entry-get (point) org-notion--notion-id)))
+         (title (substring-no-properties (org-get-heading t t t t)))
+         (callback (lambda (_status) (message "OK"))))
+    (push-title notion-id title callback)))
 
 ;;;###autoload
 (defun org-notion-import-block (notion-id)
   "Import notion block as org item.  NOTION-ID is notion uuid of imported block."
   (interactive "sNotion id: ")
-  (progn (message (format "Importing %s" notion-id))
-         (org-insert-heading-after-current)
-         (org-set-property org-notion--notion-id notion-id)
-         (setq org-notion--current-org-notion-buffer (current-buffer))
-         (fetch-block notion-id (lambda (_status)
-                                  (with-current-buffer (current-buffer)
-                                         (search-forward "\n\n")
-                                         (let* ((data (json-read))
-                                                (first-result (elt (alist-get 'results data) 0))
-                                                (value (alist-get 'value first-result))
-                                                (properties (alist-get 'properties value))
-                                                (title (elt (elt (alist-get 'title properties) 0)
-                                                            0)))
-                                           (message (format "title: %s" title))
-                                           (switch-to-buffer org-notion--current-org-notion-buffer)
-                                           (insert (format " %s" title))))))))
+  (let ((notion-id (org-notion--uuid notion-id)))
+    (progn (message (format "Importing %s" notion-id))
+           (org-insert-heading-after-current)
+           (org-set-property org-notion--notion-id notion-id)
+           (setq org-notion--current-org-notion-buffer (current-buffer))
+           (fetch-block notion-id (lambda (_status)
+                                    (with-current-buffer (current-buffer)
+                                      (search-forward "\n\n")
+                                      (let* ((data (json-read))
+                                             (first-result (elt (alist-get 'results data) 0))
+                                             (value (alist-get 'value first-result))
+                                             (properties (alist-get 'properties value))
+                                             (title (elt (elt (alist-get 'title properties) 0)
+                                                         0)))
+                                        (message (format "title: %s" title))
+                                        (switch-to-buffer org-notion--current-org-notion-buffer)
+                                        (insert (format " %s" title)))))))))
 
 
 ;;;###autoload
