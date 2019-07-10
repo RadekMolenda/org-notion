@@ -32,6 +32,8 @@
 (require 's)
 (require 'dash)
 (require 'json)
+(require 'ox)
+(require 'cl-lib)
 
 (defun export-as-notion-block (&optional async subtreep visible-only)
   "export as notion to buffer"
@@ -39,27 +41,47 @@
   (org-export-to-buffer 'notion "*notion export*"
     async subtreep visible-only nil nil (lambda () (text-mode))))
 
-(defun notion-format (&optional h c i)
-  (format "[%s]" c))
 
-(defun org-notion--format-headline (&optional h c i)
-  (org-export-data-with-backend (org-element-property :text h) 'notion i))
+(defun org-notion--format-plain-text (c _i)
+  "Default notion format H C I."
+  (format "[\"%s\"]" c))
+
+(defun notion-format (&optional h c i)
+  "Default notion format H C I."
+  (format "[%s]" h))
+
+(defun org-notion-link (link contents _i)
+  "Format LINK, insert CONTENTS."
+  (let ((url (org-element-property :raw-link link)))
+    (format "[%s,[[\"a\",\"%s\"]]" contents url)))
+
+(defun org-notion--format-template (contents _i)
+  "Just print CONTENTS."
+  (message (format "%s" contents))
+  contents)
+
+(defun org-notion--format-headline (&optional h _c i)
+  "Format headline H I."
+  ;;(message (format "HEADLINE %s" (org-export-data (org-element-property :title h) i)) )
+  (format "[%s]" (org-export-data (org-element-property :title h) i)))
 
 (org-export-define-backend 'notion
-  '((bold . notion-format)
+  '(
+    (plain-text . org-notion--format-plain-text)
+    (headline . org-notion--format-headline)
+    (entity . notion-format)
+    (bold . notion-format)
     (center-block . notion-format)
     (clock . notion-format)
     (code . notion-format)
     (drawer . notion-format)
     (dynamic-block . notion-format)
-    (entity . notion-format)
     (example-block . notion-format)
     (export-block . notion-format)
     (export-snippet . notion-format)
     (fixed-width . notion-format)
     (footnote-definition . notion-format)
     (footnote-reference . notion-format)
-    (headline . org-notion--format-headline)
     (horizontal-rule . notion-format)
     (inline-src-block . notion-format)
     (inlinetask . notion-format)
@@ -69,11 +91,10 @@
     (latex-environment . notion-format)
     (latex-fragment . notion-format)
     (line-break . notion-format)
-    (link . notion-format)
+    (link . org-notion-link)
     (node-property . notion-format)
     (paragraph . notion-format)
     (plain-list . notion-format)
-    (plain-text . notion-format)
     (planning . notion-format)
     (property-drawer . notion-format)
     (quote-block . notion-format)
@@ -83,17 +104,20 @@
     (src-block . notion-format)
     (statistics-cookie . notion-format)
     (strike-through . notion-format)
+
     (subscript . notion-format)
     (superscript . notion-format)
     (table . notion-format)
     (table-cell . notion-format)
     (table-row . notion-format)
     (target . notion-format)
-    (template . notion-format)
+
+    (template . org-notion--format-template)
     (timestamp . notion-format)
     (underline . notion-format)
     (verbatim . notion-format)
-    (verse-block . notion-format)))
+    (verse-block . notion-format)
+    ))
 
 
 (defun get-string-from-file (file-path)
