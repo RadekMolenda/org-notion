@@ -35,11 +35,11 @@
 (require 'ox)
 (require 'cl-lib)
 
-(defun export-as-notion-block (&optional async subtreep visible-only)
+(defun export-as-notion-block (callback)
   "export as notion to buffer"
   (interactive)
   (org-export-to-buffer 'notion "*notion export*"
-    async subtreep visible-only nil nil (lambda () (text-mode))))
+    nil nil nil nil nil callback))
 
 
 (defun org-notion--format-plain-text (c _i)
@@ -52,8 +52,9 @@
 
 (defun org-notion-link (link contents _i)
   "Format LINK, insert CONTENTS."
-  (let ((url (org-element-property :raw-link link)))
-    (format "[%s,[[\"a\",\"%s\"]]" contents url)))
+  (let ((url (org-element-property :raw-link link))
+        (text (get-text link)))
+    (format "[\"%s\",[[\"a\",\"%s\"]]]" text url)))
 
 (defun org-notion--format-template (contents _i)
   "Just print CONTENTS."
@@ -62,15 +63,27 @@
 
 (defun org-notion--format-headline (&optional h _c i)
   "Format headline H I."
-  ;;(message (format "HEADLINE %s" (org-export-data (org-element-property :title h) i)) )
   (format "[%s]" (org-export-data (org-element-property :title h) i)))
+
+(defun org-notion--format-bold (&optional h c i)
+  "Format headline H I."
+  (format "[\"%s\", [[\"b\"]]]" (get-text h)))
+
+(defun org-notion--format-italic (&optional h c i)
+  "Format headline H I."
+  (format "[\"%s\", [[\"i\"]]]" (get-text h) ))
+
+(defun get-text (element)
+  (let ((start (org-element-property :contents-begin element))
+        (end (org-element-property :contents-end element)))
+    (buffer-substring start end)))
 
 (org-export-define-backend 'notion
   '(
     (plain-text . org-notion--format-plain-text)
     (headline . org-notion--format-headline)
     (entity . notion-format)
-    (bold . notion-format)
+    (bold . org-notion--format-bold)
     (center-block . notion-format)
     (clock . notion-format)
     (code . notion-format)
@@ -85,7 +98,7 @@
     (horizontal-rule . notion-format)
     (inline-src-block . notion-format)
     (inlinetask . notion-format)
-    (italic . notion-format)
+    (italic . org-notion--format-italic)
     (item . notion-format)
     (keyword . notion-format)
     (latex-environment . notion-format)

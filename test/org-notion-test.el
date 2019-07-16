@@ -27,12 +27,27 @@
 
 (ert-deftest parse-uuid ()
   "'parse-uuid' test"
-
   (let ((id (org-notion--uuid "d8a60223-5a72-44c4-b075-145ecb173e05")))
-    (should (= id "d8a60223-5a72-44c4-b075-145ecb173e05")))
+    (should (s-equals? id "d8a60223-5a72-44c4-b075-145ecb173e05")))
   (let ((id (org-notion--uuid "d8a602235a7244c4b075145ecb173e05")))
-    (should (= id "d8a60223-5a72-44c4-b075-145ecb173e05")))
+    (should (s-equals? id "d8a60223-5a72-44c4-b075-145ecb173e05")))
   (let ((id (org-notion--uuid "some-garbage")))
-    (should (= id ""))))
+    (should (s-equals? id ""))))
+
+(ert-deftest parsing-item ()
+  "Parses the heading item correctly"
+    (with-temp-buffer
+      (org-mode)
+      (insert "* yes [[http://www.example.com][hello]] link *bold* /italics/")
+      (goto-char (point-min))
+      (push-mark (point-max))
+      (setq mark-active t)
+      (export-as-notion-block (lambda ()
+                                (let ((expected-string "[[\"yes \"],[\"hello\",[[\"a\",\"http://www.example.com\"]]],[\" link \"],[\"bold\",[[\"b\"]]],[\"italics\",[[\"i\"]]]]"))
+(should (s-equals? (buffer-string) expected-string))
+                                  )))
+      )
+    )
+
 
 ;;; test.el ends here

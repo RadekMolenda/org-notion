@@ -1,2 +1,14 @@
 * Org Notion
   keeps the org and notion in sync
+
+* Testing
+  run
+  #+BEGIN_SRC bash
+  cask
+  #+END_SRC
+  to install dependencies
+
+** Test script
+  #+BEGIN_SRC bash
+  make test
+  #+END_SRC
