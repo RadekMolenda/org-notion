@@ -43,11 +43,26 @@
       (push-mark (point-max))
       (setq mark-active t)
       (export-as-notion-block (lambda ()
-                                (let ((expected-string "[[\"yes \"],[\"hello\",[[\"a\",\"http://www.example.com\"]]],[\" link \"],[\"bold\",[[\"b\"]]],[\"italics\",[[\"i\"]]]]"))
+                                (let ((expected-string "[[\"yes \"],[\"hello \",[[\"a\",\"http://www.example.com\"]]],[\"link \"],[\"bold\",[[\"b\"]]],[\"italics\",[[\"i\"]]]]\n"))
 (should (s-equals? (buffer-string) expected-string))
                                   )))
       )
     )
+
+;; (ert-deftest parsing-headline-with-additional-text ()
+;;   "Parses the headline item correctly"
+;;     (with-temp-buffer
+;;       (org-mode)
+;;       (insert "* some headline\n  some text")
+;;       (goto-char (point-min))
+;;       (push-mark (point-max))
+;;       (setq mark-active t)
+;;       (export-as-notion-block (lambda ()
+;;                                 (let ((expected-string "[[\"some headline\"]]\n[[\"some text\"]]\n"))
+;; (should (s-equals? (buffer-string) expected-string))
+;;                                   )))
+;;       )
+;;     )
 
 
 ;;; test.el ends here

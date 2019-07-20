@@ -54,12 +54,11 @@
   "Format LINK, insert CONTENTS."
   (let ((url (org-element-property :raw-link link))
         (text (get-text link)))
-    (format "[\"%s\",[[\"a\",\"%s\"]]]" text url)))
+    (format "[\"%s \",[[\"a\",\"%s\"]]]" text url)))
 
 (defun org-notion--format-template (contents _i)
   "Just print CONTENTS."
-  (message (format "%s" contents))
-  contents)
+(replace-regexp-in-string "\\] *\\[" "\],\[" contents))
 
 (defun org-notion--format-headline (&optional h _c i)
   "Format headline H I."
@@ -67,11 +66,11 @@
 
 (defun org-notion--format-bold (&optional h c i)
   "Format headline H I."
-  (format "[\"%s\", [[\"b\"]]]" (get-text h)))
+  (format "[\"%s\",[[\"b\"]]]" (get-text h)))
 
 (defun org-notion--format-italic (&optional h c i)
   "Format headline H I."
-  (format "[\"%s\", [[\"i\"]]]" (get-text h) ))
+  (format "[\"%s\",[[\"i\"]]]" (get-text h) ))
 
 (defun get-text (element)
   (let ((start (org-element-property :contents-begin element))
