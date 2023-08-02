@@ -1,5 +1,45 @@
-* Org Notion
-  keeps the org and notion in sync
+* Org Notion - Keep Org and Notion in Sync
+
+Org Notion is a package that allows you to keep your Org files and Notion in sync. Please note that this package is currently in the experimental stage and not available in MELPA or as a Notion integration. Follow the steps below to install and use it.
+
+** Installation
+
+*** Step 1: Getting the Notion Secret
+
+   - Go to [[https://developers.notion.com/][Notion developers page]].
+   - Create an integration and obtain a secret.
+
+*** Step 2: Managing Secrets
+
+   The package uses the built-in `auth-source` package to manage secrets. For the simplest setup, store your Notion secret in your `~/.authinfo` file with "notion.so" as the machine name.
+
+   #+BEGIN_EXAMPLE
+   machine notion.so login this-is-not-used@example.com password secret
+   #+END_EXAMPLE
+
+**** [NOTE] You don't have to store the secret as plain text
+
+   This requires a bit more setup as you need to have GnuPG installed, but it pays off. Emacs has built-in support to decrypt and encrypt files with `.gpg` extension on the fly, so the best option would be to store your secret in `~/.authinfo.gpg`.
+
+*** Step 3: Install Org Notion
+
+   1. Clone the `org-notion` repository:
+
+      #+BEGIN_SRC bash
+        git clone git@github.com:RadekMolenda/org-notion.git org-notion
+        cd org-notion
+      #+END_SRC
+
+   2. Add the `org-notion` directory to Emacs load path:
+
+      #+BEGIN_SRC emacs-lisp
+      (add-to-list 'load-path "/path/to/org-notion/")
+      (require 'org-notion)
+      #+END_SRC
+
+   That's it! You have successfully installed Org Notion. Now you can keep your Org files and Notion in sync with ease.
+
+* TODO Usage
 
 * Testing
   run

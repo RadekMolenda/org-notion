@@ -2,9 +2,9 @@
 
 ;; Author: qrczeno
 ;; Created: 01-Jun-2019
-;; Version: 0.1
+;; Version: 1.0
 ;; Keywords: org, org-mode, notion
-;; Package-Requires: ((s "1.9"))
+;; Package-Requires: ((s "1.9") (dash "2.19.1"))
 
 ;;; Commentary:
 
@@ -12,35 +12,75 @@
 ;; Define the following properties your org note like that
 ;; * Notion page I would like to keep in sync
 ;;   :PROPERTIES:
-;;   :NOTION_ID: 0dc73850-a48c-4096-ab71-3eeeda48522e
-;;   :NOTION_TOKEN_V2_FILE_PATH: ~/token_v2.gpg
+;;   :NOTION_PAGE_ID: 0dc73850-a48c-4096-ab71-3eeeda48522e
 ;;   :END:
 ;;
 ;; while cursor being on note run
-;;   `org-node-push' to push the changes
-;;   `org-node-fetch' to fetch the changes
+;;   `org-notion-import' to push the changes
+;;   `org-notion-fetch' to fetch the changes
 
 ;; TODO: use (org-map-tree (lambda () (message (format "%s" (org-get-heading t t t t)))))
 ;;       to publish tree as page
 ;; TODO: links and todo lists in notion is a must
 ;;; Code:
 
-(defvar org-notion--get-record-values "https://www.notion.so/api/v3/getRecordValues")
-(defvar org-notion--sumbit-transaction-url "https://www.notion.so/api/v3/submitTransaction")
-(defvar org-notion--notion-id "NOTION_ID")
+(defvar org-notion--notion-api-url "https://api.notion.com")
+(defvar org-notion--page-id-property-name "NOTION_PAGE_ID")
+(defvar org-notion--notion-password-machine "notion.so")
 
 (require 's)
 (require 'dash)
 (require 'json)
 (require 'ox)
 (require 'cl-lib)
+(require 'auth-source)
 
-(defun export-as-notion-block (callback)
-  "export as notion to buffer"
+(defun org-notion--get-password (host)
+  "Get the password for the specified HOST from auth-sources."
+  (let ((entry (auth-source-search :host host :max 1)))
+    (when entry
+      (let ((secret (plist-get (car entry) :secret)))
+        (if (functionp secret)
+            (funcall secret)
+          secret)))))
+
+(defun org-notion--make-request (method url &optional payload)
+  "Make the request to URL given METHOD and return parsed json object."
+  (let* ((url-request-method method)
+         (token (org-notion--get-password org-notion--notion-password-machine))
+         (url-request-extra-headers `(("Content-Type" . "application/json")
+                                      ("Notion-Version" . "2022-06-28")
+                                      ("Authorization" . ,(s-concat "Bearer " token))))
+         (url-request-data payload))
+    (with-temp-buffer (url-insert-file-contents url) (json-read))))
+
+
+(defun org-notion--retrieve-page (notion-id)
+  "Given NOTION-ID fetch the page and return parsed json."
+  (org-notion--make-request  "GET" (s-concat "https://api.notion.com/v1/pages/" notion-id)))
+
+
+(defun org-notion--retrieve-children-block (notion-id)
+  "Given NOTION-ID fetch the page and return parsed json."
+  (org-notion--make-request  "GET" (s-concat "https://api.notion.com/v1/blocks/" notion-id "/children?page_size=100")))
+
+(defun org-notion--get-title (data)
+  "Extract the 'title' from the json DATA."
+  (let* ((properties (cdr (assoc 'properties data)))
+          (name (cdr (assoc 'Name properties)))
+          (title-info (cdr (assoc 'title name)))
+          (title (elt title-info 0))
+          (title-text (cdr (assoc 'plain_text title))))
+    title-text))
+
+
+(defun org-notion--export-as-notion-block (callback)
+  "Export as notion to buffer and call CALLBACK."
   (interactive)
   (org-export-to-buffer 'notion "*notion export*"
     nil nil nil nil nil callback))
 
+;; TODO: refactor to use notion api
 
 (defun org-notion--format-plain-text (c _i)
   "Default notion format H C I."
@@ -53,7 +93,7 @@
 (defun org-notion-link (link contents _i)
   "Format LINK, insert CONTENTS."
   (let ((url (org-element-property :raw-link link))
-        (text (get-text link)))
+        (text (org-notion--get-text link)))
     (format "[\"%s \",[[\"a\",\"%s\"]]]" text url)))
 
 (defun org-notion--format-template (contents _i)
@@ -65,14 +105,14 @@
   (format "[%s]" (org-export-data (org-element-property :title h) i)))
 
 (defun org-notion--format-bold (&optional h c i)
-  "Format headline H I."
-  (format "[\"%s\",[[\"b\"]]]" (get-text h)))
+  "Format bold H I."
+  (format "[\"%s\",[[\"b\"]]]" (org-notion--get-text h)))
 
 (defun org-notion--format-italic (&optional h c i)
-  "Format headline H I."
-  (format "[\"%s\",[[\"i\"]]]" (get-text h) ))
+  "Format italic H I."
+  (format "[\"%s\",[[\"i\"]]]" (org-notion--get-text h) ))
 
-(defun get-text (element)
+(defun org-notion--get-text (element)
   (let ((start (org-element-property :contents-begin element))
         (end (org-element-property :contents-end element)))
     (buffer-substring start end)))
@@ -129,56 +169,23 @@
     (underline . notion-format)
     (verbatim . notion-format)
     (verse-block . notion-format)
-    ))
+))
 
+(defun org-notion--insert-page-content (notion-id)
+  "Given NOTION-ID fetch page data and insert title and set property name to NOTION-ID."
+  (let ((notion-json (org-notion--retrieve-page notion-id)))
+    (org-insert-heading-respect-content)
+    (insert (org-notion--get-title notion-json))
+    (org-entry-put nil org-notion--page-id-property-name notion-id)))
 
-(defun get-string-from-file (file-path)
-  "Return FILE_PATH file content."
-  (with-temp-buffer (insert-file-contents file-path)
-                    (delete-blank-lines)
-                    (buffer-string)))
+(defun org-notion--insert-block-children-content (notion-id)
 
+  "Given NOTION-ID fetch page children and import blocks to org file."
 
-
-(defun org-notion--token-v2 ()
-  "Get the token."
-  (save-excursion (let ((token-path (or (cdr (assoc "NOTION_TOKEN_V2_FILE_PATH"
-                                                    (org-entry-properties)))
-                                        "~/token_v2.gpg")))
-                    (s-trim (format "token_v2=%s" (get-string-from-file token-path))))))
-
-(defun org-notion--uuid (uuid-string)
-  "Tries to parse UUID-STRING and returns uuid or nil if failed."
-  (s-join "-" (cdr (s-match "^\\([[:alnum:]]\\{8\\}\\)-?\\([[:alnum:]]\\{4\\}\\)-?\\([[:alnum:]]\\{4\\}\\)-?\\([[:alnum:]]\\{4\\}\\)-?\\([[:alnum:]]\\{12\\}\\)$" uuid-string))))
-
-(defun org-notion--request (url payload cb)
-  "Send PAYLOAD post json request to URL and call a CB in response buffer."
-  (let* ((url-request-method "POST")
-         (token-v2 (org-notion--token-v2))
-         (url-request-extra-headers `(("Content-Type" . "application/json")
-                                      ("Cookie" . ,(org-notion--token-v2))))
-         (url-request-data payload))
-    (progn
-      (message (format "Payload %s" payload))
-      (url-retrieve url cb))))
-
-(defun fetch-block (notion-id callback)
-  "Given the NOTION-ID fetch the corresponding blocks."
-  (org-notion--request org-notion--get-record-values (json-encode `(("requests" . ((("id" . ,notion-id) ("table" . "block")))))) callback))
-
-(defun push-title (notion-id title callback)
-  "Publish the item under point."
-  (message (format "notion-id %s title %s" notion-id title))
-  (org-notion--request
-   org-notion--sumbit-transaction-url
-   (json-encode `(("operations" .
-                   ((("args" . [[,title]])
-                     ("command" . "set")
-                     ("path" . ("properties" "title"))
-                     ("table" . "block")
-                     ("id" . ,notion-id))))))
-   callback))
-
+  (let ((notion-json (org-notion--retrieve-children-block notion-id)))
+    (org-insert-heading-respect-content t)
+    (org-do-demote)
+    (insert "all other cool stuff is going here")))
 
 ;;;###autoload
 (defun org-notion-send-block ()
@@ -189,37 +196,14 @@
          (callback (lambda (_status) (message "OK"))))
     (push-title notion-id title callback)))
 
+
+;; TODO: this is where refactoring ends
+
 ;;;###autoload
-(defun org-notion-import-block (notion-id)
+(defun org-notion-import-page (notion-id)
   "Import notion block as org item.  NOTION-ID is notion uuid of imported block."
-  (interactive "sNotion id: ")
-  (let ((notion-id (org-notion--uuid notion-id)))
-    (progn (message (format "Importing %s" notion-id))
-           (org-insert-heading-after-current)
-           (org-set-property org-notion--notion-id notion-id)
-           (setq org-notion--current-org-notion-buffer (current-buffer))
-           (fetch-block notion-id (lambda (_status)
-                                    (with-current-buffer (current-buffer)
-                                      (search-forward "\n\n")
-                                      (let* ((data (json-read))
-                                             (first-result (elt (alist-get 'results data) 0))
-                                             (value (alist-get 'value first-result))
-                                             (properties (alist-get 'properties value))
-                                             (title (elt (elt (alist-get 'title properties) 0)
-                                                         0)))
-                                        (message (format "title: %s" title))
-                                        (switch-to-buffer org-notion--current-org-notion-buffer)
-                                        (insert (format " %s" title)))))))))
-
-
-;;;###autoload
-(defun org-notion-open ()
-  "Fetch the notion block and update the note accordingly."
-  (interactive)
-  (let ((notion-id (cdr (assoc org-notion--notion-id (org-entry-properties))))
-        (notion-namespace (cdr (assoc "NOTION_NAMESPACE" (org-entry-properties)))))
-    (if notion-id (browse-url (format "https://www.notion.so/%s/%s" notion-namespace notion-id))
-      (message "please define NOTION_ID as property"))))
+  (org-notion--insert-page-content notion-id)
+  (org-notion--insert-block-children-content notion-id))
 
 
 (provide 'org-notion)
