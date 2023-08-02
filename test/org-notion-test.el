@@ -1,8 +1,8 @@
 ;;; org-notion-test.el --- Test for org-notion.el
 
-;; Copyright (C) 2016 by Radek MOLENDA
+;; Copyright (C) 2023 by Radek Molenda
 
-;; Author: Radek MOLENDA <radek.molenda@gmail.com>
+;; Author: Radek Molenda <radek.molenda@gmail.com>
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -22,47 +22,29 @@
 ;;; Code:
 
 (require 'ert)
+(require 'cl-macs)
+
 
 (require 'org-notion)
 
-(ert-deftest parse-uuid ()
-  "'parse-uuid' test"
-  (let ((id (org-notion--uuid "d8a60223-5a72-44c4-b075-145ecb173e05")))
-    (should (s-equals? id "d8a60223-5a72-44c4-b075-145ecb173e05")))
-  (let ((id (org-notion--uuid "d8a602235a7244c4b075145ecb173e05")))
-    (should (s-equals? id "d8a60223-5a72-44c4-b075-145ecb173e05")))
-  (let ((id (org-notion--uuid "some-garbage")))
-    (should (s-equals? id ""))))
+(ert-deftest fetching-page-calls-the-right-api ()
+  "Fetching page calls make request"
+  (cl-letf (((symbol-function 'org-notion--make-request)
+             (lambda (method url &optional payload)
+               (should (equal method "GET"))
+               (should (equal url "https://api.notion.com/v1/pages/xxxx-xxxx-xxxx-xxxxxxxx")))))
+    (org-notion--fetch-page "xxxx-xxxx-xxxx-xxxxxxxx")))
 
-(ert-deftest parsing-item ()
-  "Parses the heading item correctly"
-    (with-temp-buffer
-      (org-mode)
-      (insert "* yes [[http://www.example.com][hello]] link *bold* /italics/")
-      (goto-char (point-min))
-      (push-mark (point-max))
-      (setq mark-active t)
-      (export-as-notion-block (lambda ()
-                                (let ((expected-string "[[\"yes \"],[\"hello \",[[\"a\",\"http://www.example.com\"]]],[\"link \"],[\"bold\",[[\"b\"]]],[\"italics\",[[\"i\"]]]]\n"))
-(should (s-equals? (buffer-string) expected-string))
-                                  )))
-      )
-    )
+(setq stub-org-notion--fetch-page (lambda (page-id)
+            (let ((buffer (find-file-noselect "test/fixtures/valid-page-response.txt")))
+              (with-current-buffer buffer (setq buffer-read-only t) buffer))))
 
-;; (ert-deftest parsing-headline-with-additional-text ()
-;;   "Parses the headline item correctly"
-;;     (with-temp-buffer
-;;       (org-mode)
-;;       (insert "* some headline\n  some text")
-;;       (goto-char (point-min))
-;;       (push-mark (point-max))
-;;       (setq mark-active t)
-;;       (export-as-notion-block (lambda ()
-;;                                 (let ((expected-string "[[\"some headline\"]]\n[[\"some text\"]]\n"))
-;; (should (s-equals? (buffer-string) expected-string))
-;;                                   )))
-;;       )
-;;     )
+(ert-deftest importing-page ()
+  "Importing page builds buffer with correct org data in it"
+  (cl-letf (((symbol-function 'org-notion--fetch-page)
+             stub-org-notion--fetch-page))
+           (should (s-equals? (org-notion-import-page "whatever") "yes yes yes"))))
+
 
 
 ;;; test.el ends here

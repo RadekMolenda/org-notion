@@ -1,0 +1,78 @@
+HTTP/2 200
+date: Tue, 01 Aug 2023 07:37:07 GMT
+content-type: application/json; charset=utf-8
+x-powered-by: Express
+etag: W/"41a-C4IquhvmvyaFm91BgpPwtVairf8"
+vary: Accept-Encoding
+cf-cache-status: DYNAMIC
+set-cookie: __cf_bm=0xoPDtxPNhEUvY7.fxOT54hs.nGaWX3b6UN.puNspOk-1690875426-0-AQ6rc0L382iA/jtbBdiK5PXJQGEKAKWges8eVWDBS3ii8VERz/EzQ5LyarM1ij9bjZo5xiuc0aAVTcewiMrHIG0=; path=/; expires=Tue, 01-Aug-23 08:07:06 GMT; domain=.notion.com; HttpOnly; Secure; SameSite=None
+server: cloudflare
+cf-ray: 7efc69f9581cbfd5-WAW
+
+{
+  "object": "page",
+  "id": "de466bb4-4bb2-4610-9e91-f656e2a3a6dc",
+  "created_time": "2023-07-31T20:12:00.000Z",
+  "last_edited_time": "2023-07-31T22:56:00.000Z",
+  "created_by": {
+    "object": "user",
+    "id": "aee4ec30-692d-499d-af7b-30ecd7c6112e"
+  },
+  "last_edited_by": {
+    "object": "user",
+    "id": "aee4ec30-692d-499d-af7b-30ecd7c6112e"
+  },
+  "cover": null,
+  "icon": null,
+  "parent": {
+    "type": "database_id",
+    "database_id": "56f25737-10d0-439b-af69-c055bb9bec5c"
+  },
+  "archived": false,
+  "properties": {
+    "Created": {
+      "id": "L%7DH%5B",
+      "type": "created_time",
+      "created_time": "2023-07-31T20:12:00.000Z"
+    },
+    "Date": {
+      "id": "PQ%5DM",
+      "type": "date",
+      "date": {
+        "start": "2023-07-20",
+        "end": null,
+        "time_zone": null
+      }
+    },
+    "Tags": {
+      "id": "%5ECz_",
+      "type": "multi_select",
+      "multi_select": []
+    },
+    "Name": {
+      "id": "title",
+      "type": "title",
+      "title": [
+        {
+          "type": "text",
+          "text": {
+            "content": "yes yes yes",
+            "link": null
+          },
+          "annotations": {
+            "bold": false,
+            "italic": false,
+            "strikethrough": false,
+            "underline": false,
+            "code": false,
+            "color": "default"
+          },
+          "plain_text": "yes yes yes",
+          "href": null
+        }
+      ]
+    }
+  },
+  "url": "https://www.notion.so/yes-yes-yes-de466bb44bb246109e91f656e2a3a6dc",
+  "public_url": null
+}
