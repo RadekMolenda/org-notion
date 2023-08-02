@@ -25,7 +25,7 @@
 ;;; Code:
 
 (defvar org-notion--notion-api-url "https://api.notion.com")
-(defvar org-notion--notion-page-id-property-name "NOTION_PAGE_ID")
+(defvar org-notion--page-id-property-name "NOTION_PAGE_ID")
 (defvar org-notion--notion-password-machine "notion.so")
 
 (require 's)
@@ -45,22 +45,24 @@
           secret)))))
 
 (defun org-notion--make-request (method url &optional payload)
-  "Make the request to URL given METHOD and return a buffer with a response."
+  "Make the request to URL given METHOD and return parsed json object."
   (let* ((url-request-method method)
          (token (org-notion--get-password org-notion--notion-password-machine))
          (url-request-extra-headers `(("Content-Type" . "application/json")
                                       ("Notion-Version" . "2022-06-28")
                                       ("Authorization" . ,(s-concat "Bearer " token))))
          (url-request-data payload))
-    (progn
-      (message (format "Payload %s" payload))
-      (url-retrieve-synchronously url))))
+    (with-temp-buffer (url-insert-file-contents url) (json-read))))
 
 
-(defun org-notion--fetch-page (page-id)
-  "Given PAGE-ID fetch the page and return a buffer response."
-  (org-notion--make-request  "GET" (s-concat "https://api.notion.com/v1/pages/" page-id)))
+(defun org-notion--retrieve-page (notion-id)
+  "Given NOTION-ID fetch the page and return parsed json."
+  (org-notion--make-request  "GET" (s-concat "https://api.notion.com/v1/pages/" notion-id)))
 
+
+(defun org-notion--retrieve-children-block (notion-id)
+  "Given NOTION-ID fetch the page and return parsed json."
+  (org-notion--make-request  "GET" (s-concat "https://api.notion.com/v1/blocks/" notion-id "/children?page_size=100")))
 
 (defun org-notion--get-title (data)
   "Extract the 'title' from the json DATA."
@@ -79,6 +81,7 @@
     nil nil nil nil nil callback))
 
 ;; TODO: refactor to use notion api
+
 (defun org-notion--format-plain-text (c _i)
   "Default notion format H C I."
   (format "[\"%s\"]" c))
@@ -168,6 +171,22 @@
     (verse-block . notion-format)
 ))
 
+(defun org-notion--insert-page-content (notion-id)
+  "Given NOTION-ID fetch page data and insert title and set property name to NOTION-ID."
+  (let ((notion-json (org-notion--retrieve-page notion-id)))
+    (org-insert-heading-respect-content)
+    (insert (org-notion--get-title notion-json))
+    (org-entry-put nil org-notion--page-id-property-name notion-id)))
+
+(defun org-notion--insert-block-children-content (notion-id)
+
+  "Given NOTION-ID fetch page children and import blocks to org file."
+
+  (let ((notion-json (org-notion--retrieve-children-block notion-id)))
+    (org-insert-heading-respect-content t)
+    (org-do-demote)
+    (insert "all other cool stuff is going here")))
+
 ;;;###autoload
 (defun org-notion-send-block ()
   "Import notion block as org item.  NOTION-ID is notion uuid of imported block."
@@ -180,15 +199,11 @@
 
 ;; TODO: this is where refactoring ends
 
-; Use the following id: de466bb4-4bb2-4610-9e91-f656e2a3a6dc
-(defun org-notion-import-page (page-id)
-  "Import notion block as org item.  PAGE-ID is notion uuid of imported block."
-  (let* ((response-buffer (org-notion--fetch-page page-id))
-         (data-json (with-current-buffer response-buffer
-                      (search-forward "\n\n" nil 'move)
-                      (json-read)))
-         (title (org-notion--get-title data-json)))
-    title))
+;;;###autoload
+(defun org-notion-import-page (notion-id)
+  "Import notion block as org item.  NOTION-ID is notion uuid of imported block."
+  (org-notion--insert-page-content notion-id)
+  (org-notion--insert-block-children-content notion-id))
 
 
 (provide 'org-notion)

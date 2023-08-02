@@ -33,17 +33,24 @@
              (lambda (method url &optional payload)
                (should (equal method "GET"))
                (should (equal url "https://api.notion.com/v1/pages/xxxx-xxxx-xxxx-xxxxxxxx")))))
-    (org-notion--fetch-page "xxxx-xxxx-xxxx-xxxxxxxx")))
+    (org-notion--retrieve-page "xxxx-xxxx-xxxx-xxxxxxxx")))
 
-(setq stub-org-notion--fetch-page (lambda (page-id)
-            (let ((buffer (find-file-noselect "test/fixtures/valid-page-response.txt")))
-              (with-current-buffer buffer (setq buffer-read-only t) buffer))))
+(setq stub-org-notion--retrieve-page (lambda (page-id)
+            (let ((buffer (find-file-noselect "test/fixtures/valid-page-response.json")))
+              (with-current-buffer buffer (setq buffer-read-only t) (json-read)))))
+
+(setq stub-org-notion--retrieve-children-block (lambda (notion-id)
+            (let ((buffer (find-file-noselect "test/fixtures/valid-block-children-response.json")))
+              (with-current-buffer buffer (setq buffer-read-only t) (json-read)))))
 
 (ert-deftest importing-page ()
   "Importing page builds buffer with correct org data in it"
-  (cl-letf (((symbol-function 'org-notion--fetch-page)
-             stub-org-notion--fetch-page))
-           (should (s-equals? (org-notion-import-page "whatever") "yes yes yes"))))
+  (cl-letf (((symbol-function 'org-notion--retrieve-page) stub-org-notion--retrieve-page)
+            ((symbol-function 'org-notion--retrieve-children-block) stub-org-notion--retrieve-children-block))
+    (with-temp-buffer
+      (org-mode)
+      (org-notion-import-page "some-notion-id")
+      (should (s-equals? (buffer-substring-no-properties (point-min) (point-max)) "* yes yes yes\n:PROPERTIES:\n:NOTION_PAGE_ID: some-notion-id\n:END:\n** all other cool stuff is going here\n")))))
 
 
 
